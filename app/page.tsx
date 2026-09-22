@@ -1,0 +1,12 @@
+import { SiteHeader } from '@/components/site-header'
+import { Hero } from '@/components/hero'
+import { ServiceCards } from '@/components/service-cards'
+import { AboutSection } from '@/components/about-section'
+import { CtaPanels } from '@/components/cta-panels'
+import { Testimonials } from '@/components/testimonials'
+import { Stats } from '@/components/stats'
+import { LatestArticles } from '@/components/latest-articles'
+import { ContactSection } from '@/components/contact-section'
+import { MovingText } from '@/components/moving-text'
+import { SiteFooter } from '@/components/site-footer'
+export default function Home(){return <><SiteHeader/><main><Hero/><ServiceCards/><AboutSection/><MovingText/><CtaPanels/><Testimonials/><Stats/><LatestArticles/><ContactSection/></main><SiteFooter/></>}

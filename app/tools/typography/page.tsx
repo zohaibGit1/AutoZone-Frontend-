@@ -1,0 +1,2 @@
+import { ContentShell } from '@/components/content-shell'
+export default function Typography(){return <ContentShell title="Typography" eyebrow="Tools"><section className="container pb-28 space-y-12"><h2 className="text-7xl">Heading One</h2><h3 className="text-5xl">Heading Two</h3><p className="max-w-3xl text-lg text-[#b9b9bd]">This page demonstrates the same condensed heading family and body typography used across the frontend.</p></section></ContentShell>}

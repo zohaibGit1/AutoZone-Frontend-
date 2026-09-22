@@ -1,0 +1,2 @@
+import { ContentShell } from '@/components/content-shell'
+export default function Page(){return <ContentShell title="Wishlist" eyebrow="Shop"><section className="container max-w-4xl pb-28"><div className="border border-white/10 bg-[#111015] p-10"><h2 className="text-4xl">Your Wishlist Is Ready</h2><p className="mt-4 text-[#8b8b90]">This frontend page is ready for backend or WooCommerce integration.</p></div></section></ContentShell>}

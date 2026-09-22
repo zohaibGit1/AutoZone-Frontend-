@@ -1,0 +1,5 @@
+import Image from 'next/image'
+import Link from 'next/link'
+import { ArrowUpRight } from 'lucide-react'
+import { services } from '@/lib/data'
+export function ServiceCards() { return <section id="services" className="relative z-20 -mt-24"><div className="container grid grid-cols-1 gap-px overflow-hidden bg-white/10 sm:grid-cols-2 lg:grid-cols-4">{services.slice(0,4).map(s=><Link key={s.slug} href={`/services#${s.slug}`} className="group relative flex h-[300px] flex-col justify-end overflow-hidden bg-[#0d0c0f] p-7"><Image src={s.image} alt={s.title} fill className="object-cover opacity-75 transition duration-700 group-hover:scale-105 group-hover:opacity-100"/><div className="absolute inset-0 bg-gradient-to-t from-[#0d0c0f] via-[#0d0c0f]/45 to-transparent"/><div className="relative z-10"><h2 className="text-2xl">{s.title}</h2><p className="mt-2 text-sm text-[#8b8b90]">{s.short}</p><span className="mt-4 inline-flex h-10 w-10 items-center justify-center bg-[#ea0a0b] text-white"><ArrowUpRight size={16}/></span></div></Link>)}</div></section> }
