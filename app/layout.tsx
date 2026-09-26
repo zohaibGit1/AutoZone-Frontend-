@@ -7,6 +7,7 @@ const heading = Barlow_Condensed({ subsets: ['latin'], weight: ['400','500','600
 const body = DM_Sans({ subsets: ['latin'], weight: ['400','500','600','700'], variable: '--font-body', display: 'swap' })
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'),
   title: 'AutoZone — Detailing & Accessories',
   description: 'AutoZone Detailing & Accessories — Full-service car detailing, paint protection, ceramic coating, steam cleaning, and premium automotive care.',
   icons: {
