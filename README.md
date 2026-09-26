@@ -1,14 +1,14 @@
-# DetailX Next.js Frontend Clone
+# AutoZone Detailing & Accessories Frontend
 
-A frontend-only Next.js implementation inspired by the DetailX car-detailing demo.
+A modern, high-performance Next.js web application for AutoZone Detailing & Accessories.
 
 ## Stack
-- Next.js 16
+- Next.js 16 (Turbopack / App Router)
 - React 19
 - TypeScript
 - Tailwind CSS 4
 - Lucide icons
-- Local image assets
+- Local optimized image assets
 
 ## Run
 ```bash
@@ -19,28 +19,24 @@ pnpm dev
 Then open http://localhost:3000
 
 ## Included routes
-- /
-- /about
-- /services
-- /team
-- /faqs
-- /pricing
-- /contact
-- /quote
-- /booking
-- /cars
-- /portfolio
-- /shop
-- /shop/cart
-- /shop/checkout
-- /shop/wishlist
-- /blog
-- /blog/[slug]
-- /tools/typography
+- `/` - Home
+- `/about` - About Us
+- `/services` - Services & Detailing Packages
+- `/team` - Certified Experts & Team
+- `/faqs` - Frequently Asked Questions
+- `/pricing` - Pricing Plans
+- `/contact` - Contact & Inquiries
+- `/quote` - Request a Quote
+- `/booking` - Reserve a Bay / Online Booking
+- `/cars` - Vehicle Categories
+- `/portfolio` - Detailing Portfolio & Work
+- `/shop` - Detailing Products Shop
+- `/shop/cart` - Cart
+- `/shop/checkout` - Checkout
+- `/shop/wishlist` - Wishlist
+- `/blog` - Detailing Articles & Insights
+- `/blog/[slug]` - Article Details
+- `/tools/typography` - Typography & Design System
 
-## Design notes
-The frontend follows the visual system of the referenced DetailX demo: dark automotive presentation, large condensed uppercase headings, red accent, full-width imagery, service cards, CTA split panels, testimonials, statistics, articles, contact form and dark footer.
-
-Images in `public/images` are local project assets. They can be replaced with licensed/original images without changing the layout.
-
-The forms and shop pages are frontend demonstrations only; connect them to your backend, email provider, CMS or commerce system when needed.
+## Branding
+The frontend integrates the official **AutoZone Detailing & Accessories** emblem, responsive navigation header, splash screen, metadata favicons, and automotive dark theme.

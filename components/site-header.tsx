@@ -2,6 +2,7 @@
 import Link from 'next/link'
 import { Menu, Search, ShoppingBag, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { BrandLogo } from '@/components/brand-logo'
 
 const links = [
   { label: 'Home', href: '/' },
@@ -25,14 +26,7 @@ export function SiteHeader() {
   return (
     <header className={`fixed inset-x-0 top-0 z-50 transition-all ${solid || open ? 'bg-[#0d0c0f]/96 backdrop-blur-md shadow-lg shadow-black/30' : 'bg-transparent'}`}>
       <div className="container flex h-[82px] items-center justify-between gap-6">
-        <Link href="/" className="flex items-center gap-2.5" onClick={() => setOpen(false)}>
-          <span className="flex h-7 w-7 items-center justify-center bg-[#ea0a0b] text-white">
-            <span className="text-sm font-bold">✦</span>
-          </span>
-          <span className="font-heading text-2xl font-bold tracking-wider uppercase text-white">
-            AUTOZONE
-          </span>
-        </Link>
+        <BrandLogo size="md" onClick={() => setOpen(false)} />
 
         <nav className="hidden items-center gap-7 lg:flex">
           {links.map((x) => (
