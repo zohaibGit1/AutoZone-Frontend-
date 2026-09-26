@@ -32,13 +32,16 @@ import {
   CheckCircle2,
   Clock,
   CreditCard,
+  Database,
   DollarSign,
+  Download,
   ExternalLink,
   FileCheck,
   FileSpreadsheet,
   FileText,
   Flame,
   Layers,
+  Loader2,
   MapPin,
   MessageSquare,
   Package,
@@ -55,6 +58,7 @@ import {
   Wrench,
   X,
 } from 'lucide-react'
+import { invoicesApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
 export default function JobDetailPage({
@@ -111,6 +115,9 @@ export default function JobDetailPage({
   const [deliveryReceiver, setDeliveryReceiver] = useState('')
   const [deliveryRemarks, setDeliveryRemarks] = useState('')
   const [deliveryRating, setDeliveryRating] = useState(5)
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false)
+  const [isSubmittingPayment, setIsSubmittingPayment] = useState(false)
+  const [paymentError, setPaymentError] = useState<string | null>(null)
 
   if (!job) {
     return (
@@ -153,18 +160,52 @@ export default function JobDetailPage({
     setApprovalNote('')
   }
 
-  const handleRecordPayment = (e: React.FormEvent) => {
+  const handleRecordPayment = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (paymentAmount <= 0) return
-    store.repository.addPayment(job.id, {
-      amount: paymentAmount,
-      paymentMethod,
-      transactionRef: paymentRef || `TXN-${Date.now()}`,
-      notes: `Recorded at workshop counter.`,
-    })
-    setPaymentModalOpen(false)
-    setPaymentAmount(0)
-    setPaymentRef('')
+    setPaymentError(null)
+    if (paymentAmount <= 0) {
+      setPaymentError('Payment amount must be greater than 0.')
+      return
+    }
+
+    setIsSubmittingPayment(true)
+    try {
+      await store.repository.addPaymentBackend(job.id, {
+        amount: paymentAmount,
+        paymentMethod,
+        transactionRef: paymentRef || `TXN-${Date.now()}`,
+        notes: `Recorded at workshop counter.`,
+      })
+      setPaymentModalOpen(false)
+      setPaymentAmount(0)
+      setPaymentRef('')
+    } catch (err: any) {
+      setPaymentError(err.message || 'Failed to record payment.')
+    } finally {
+      setIsSubmittingPayment(false)
+    }
+  }
+
+  const handleDownloadPdf = async () => {
+    const invoiceId = job.backendInvoiceId || 1
+    setIsDownloadingPdf(true)
+    try {
+      const blob = await invoicesApi.downloadInvoicePdf(invoiceId)
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `AutoZone-Invoice-${job.jobCode || invoiceId}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+    } catch (err: any) {
+      console.warn('Direct PDF download error, attempting browser open:', err)
+      const directUrl = invoicesApi.getInvoicePdfUrl(invoiceId)
+      window.open(directUrl, '_blank')
+    } finally {
+      setIsDownloadingPdf(false)
+    }
   }
 
   const handleAddService = (e: React.FormEvent) => {
@@ -295,8 +336,23 @@ export default function JobDetailPage({
 
               <button
                 type="button"
+                onClick={handleDownloadPdf}
+                disabled={isDownloadingPdf}
+                className="flex items-center gap-2 rounded-xl border border-white/20 bg-[#242330] px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-zinc-200 transition-colors hover:border-[#ea0a0b] hover:text-white disabled:opacity-50 cursor-pointer"
+                title="Download Official Tax Invoice PDF from backend"
+              >
+                {isDownloadingPdf ? (
+                  <Loader2 size={15} className="animate-spin text-[#ea0a0b]" />
+                ) : (
+                  <Download size={15} className="text-[#ea0a0b]" />
+                )}
+                <span>{isDownloadingPdf ? 'Generating PDF...' : 'Download Invoice (PDF)'}</span>
+              </button>
+
+              <button
+                type="button"
                 onClick={() => setPaymentModalOpen(true)}
-                className="flex items-center gap-2 rounded-xl border border-emerald-500/40 bg-emerald-950/40 px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-emerald-300 transition-colors hover:bg-emerald-950/70"
+                className="flex items-center gap-2 rounded-xl border border-emerald-500/40 bg-emerald-950/40 px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-emerald-300 transition-colors hover:bg-emerald-950/70 cursor-pointer"
               >
                 <CreditCard size={15} />
                 <span>Record Payment</span>
@@ -1273,6 +1329,13 @@ export default function JobDetailPage({
                 </button>
               </div>
 
+              {paymentError && (
+                <div className="mt-4 flex items-center gap-2 rounded-xl border border-red-500/30 bg-red-950/40 p-3.5 text-xs text-red-200">
+                  <AlertCircle size={16} className="shrink-0 text-red-400" />
+                  <span>{paymentError}</span>
+                </div>
+              )}
+
               <form onSubmit={handleRecordPayment} className="mt-6 space-y-5">
                 <div>
                   <label className="block text-xs font-bold uppercase tracking-wider text-zinc-300">
@@ -1323,15 +1386,17 @@ export default function JobDetailPage({
                   <button
                     type="button"
                     onClick={() => setPaymentModalOpen(false)}
-                    className="rounded-xl border border-white/20 bg-[#242330] px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-zinc-300 hover:bg-[#2c2b3a] hover:text-white"
+                    className="rounded-xl border border-white/20 bg-[#242330] px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-zinc-300 hover:bg-[#2c2b3a] hover:text-white cursor-pointer"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="rounded-xl bg-emerald-600 px-6 py-2.5 text-xs font-bold uppercase tracking-wider text-white hover:bg-emerald-500 shadow-lg shadow-emerald-950/40"
+                    disabled={isSubmittingPayment}
+                    className="flex items-center gap-2 rounded-xl bg-emerald-600 px-6 py-2.5 text-xs font-bold uppercase tracking-wider text-white hover:bg-emerald-500 shadow-lg shadow-emerald-950/40 disabled:opacity-60 cursor-pointer"
                   >
-                    Save & Generate Receipt
+                    {isSubmittingPayment && <Loader2 size={14} className="animate-spin" />}
+                    <span>{isSubmittingPayment ? 'Saving & Syncing...' : 'Save & Generate Receipt'}</span>
                   </button>
                 </div>
               </form>

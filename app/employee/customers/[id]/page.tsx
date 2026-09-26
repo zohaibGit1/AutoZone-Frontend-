@@ -12,10 +12,14 @@ import {
 } from '@/components/workshop/ui-primitives'
 import { useWorkshopStore } from '@/lib/workshop/workshop-store'
 import {
+  AlertCircle,
   ArrowLeft,
   ArrowUpRight,
   Car,
+  Database,
   DollarSign,
+  Edit2,
+  Loader2,
   Mail,
   MapPin,
   Phone,
@@ -38,6 +42,21 @@ export default function CustomerDetailPage({
 
   const customer = store.repository.getCustomerById(resolvedParams.id)
   const [addVehicleModalOpen, setAddVehicleModalOpen] = useState(false)
+  const [editCustomerModalOpen, setEditCustomerModalOpen] = useState(false)
+  const [isSubmittingVeh, setIsSubmittingVeh] = useState(false)
+  const [isUpdatingCust, setIsUpdatingCust] = useState(false)
+  const [vehError, setVehError] = useState<string | null>(null)
+  const [custError, setCustError] = useState<string | null>(null)
+
+  const [editForm, setEditForm] = useState({
+    fullName: customer?.fullName || '',
+    phone: customer?.phone || '',
+    email: customer?.email || '',
+    address: customer?.address || '',
+    city: customer?.city || '',
+    notes: customer?.notes || '',
+  })
+
   const [vehForm, setVehForm] = useState({
     registrationNumber: '',
     make: '',
@@ -78,31 +97,56 @@ export default function CustomerDetailPage({
   const vehicles = store.repository.getVehiclesByCustomerId(customer.id)
   const jobs = store.jobs.filter((j) => j.customerId === customer.id)
 
-  const handleAddVehicle = (e: React.FormEvent) => {
+  const handleAddVehicle = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!vehForm.registrationNumber || !vehForm.make) return
+    setVehError(null)
+    if (!vehForm.registrationNumber || !vehForm.make) {
+      setVehError('License plate and Make are required.')
+      return
+    }
 
-    store.repository.createVehicle({
-      ...vehForm,
-      customerId: customer.id,
-      registrationNumber: vehForm.registrationNumber.toUpperCase(),
-      vin: vehForm.vin.toUpperCase() || `VIN${Date.now()}`,
-    })
-    setAddVehicleModalOpen(false)
-    setVehForm({
-      registrationNumber: '',
-      make: '',
-      model: '',
-      variant: '',
-      year: 2024,
-      color: '',
-      fuelType: 'PETROL',
-      transmission: 'AUTOMATIC',
-      vin: '',
-      currentOdometer: 10000,
-      bodyType: 'SEDAN',
-      notes: '',
-    })
+    setIsSubmittingVeh(true)
+    try {
+      await store.repository.registerVehicleBackend({
+        ...vehForm,
+        customerId: customer.id,
+        registrationNumber: vehForm.registrationNumber.toUpperCase(),
+        vin: vehForm.vin.toUpperCase() || `VIN${Date.now()}`,
+      })
+      setAddVehicleModalOpen(false)
+      setVehForm({
+        registrationNumber: '',
+        make: '',
+        model: '',
+        variant: '',
+        year: 2024,
+        color: '',
+        fuelType: 'PETROL',
+        transmission: 'AUTOMATIC',
+        vin: '',
+        currentOdometer: 10000,
+        bodyType: 'SEDAN',
+        notes: '',
+      })
+    } catch (err: any) {
+      setVehError(err.message || 'Failed to register vehicle.')
+    } finally {
+      setIsSubmittingVeh(false)
+    }
+  }
+
+  const handleUpdateCustomer = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setCustError(null)
+    setIsUpdatingCust(true)
+    try {
+      await store.repository.updateCustomerBackend(customer.id, editForm)
+      setEditCustomerModalOpen(false)
+    } catch (err: any) {
+      setCustError(err.message || 'Failed to update customer.')
+    } finally {
+      setIsUpdatingCust(false)
+    }
   }
 
   return (
@@ -118,6 +162,24 @@ export default function CustomerDetailPage({
             <ArrowLeft size={15} />
             <span>Customers List</span>
           </Link>
+          <button
+            type="button"
+            onClick={() => {
+              setEditForm({
+                fullName: customer.fullName,
+                phone: customer.phone,
+                email: customer.email,
+                address: customer.address,
+                city: customer.city,
+                notes: customer.notes || '',
+              })
+              setEditCustomerModalOpen(true)
+            }}
+            className="flex items-center gap-2 rounded-xl border border-white/20 bg-[#242330] px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-zinc-200 hover:border-[#ea0a0b] hover:text-white transition-all cursor-pointer"
+          >
+            <Edit2 size={14} />
+            <span>Edit Profile</span>
+          </button>
           <Link
             href="/employee/jobs/new"
             className="flex items-center gap-2 rounded-xl bg-[#ea0a0b] px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-white shadow-lg shadow-red-950/40 hover:bg-red-600 transition-colors"
@@ -162,9 +224,17 @@ export default function CustomerDetailPage({
         <PanelCard title="Customer Information & Preferences">
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-3 text-xs sm:text-sm">
             <div className="space-y-2 rounded-xl border border-white/[0.14] bg-[#1d1c26] p-5">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-[#9e9ea6]">
-                Contact Record
-              </span>
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-[#9e9ea6]">
+                  Contact Record
+                </span>
+                {customer.backendCustomerId && (
+                  <span className="inline-flex items-center gap-1 rounded bg-red-950/40 border border-red-800/40 px-1.5 py-0.5 text-[9px] font-bold uppercase text-red-400">
+                    <Database size={10} />
+                    <span>DB #{customer.backendCustomerId}</span>
+                  </span>
+                )}
+              </div>
               <div className="font-heading text-lg font-bold uppercase text-white">
                 {customer.fullName}
               </div>
@@ -204,8 +274,11 @@ export default function CustomerDetailPage({
           action={
             <button
               type="button"
-              onClick={() => setAddVehicleModalOpen(true)}
-              className="flex items-center gap-2 rounded-xl bg-[#ea0a0b] px-4 py-2 text-xs font-bold uppercase tracking-wider text-white hover:bg-red-600 transition-colors shadow-md shadow-red-950/40"
+              onClick={() => {
+                setVehError(null)
+                setAddVehicleModalOpen(true)
+              }}
+              className="flex items-center gap-2 rounded-xl bg-[#ea0a0b] px-4 py-2 text-xs font-bold uppercase tracking-wider text-white hover:bg-red-600 transition-colors shadow-md shadow-red-950/40 cursor-pointer"
             >
               <Plus size={15} />
               <span>Add Vehicle</span>
@@ -218,46 +291,73 @@ export default function CustomerDetailPage({
               return (
                 <div
                   key={veh.id}
-                  className="rounded-2xl border border-white/[0.14] bg-[#1d1c26] p-5 sm:p-6 text-xs sm:text-sm transition-all hover:border-white/30"
+                  className="rounded-2xl border border-white/[0.12] bg-[#181720] p-5 transition-all hover:border-white/20"
                 >
-                  <div className="flex items-center justify-between">
-                    <span className="font-heading text-lg font-bold uppercase text-white">
-                      {veh.make} {veh.model}
-                    </span>
-                    <span className="rounded-lg bg-[#242330] px-2.5 py-1 font-mono text-xs font-bold text-[#ea0a0b] border border-white/10">
-                      {veh.registrationNumber}
-                    </span>
-                  </div>
-                  <div className="mt-3 space-y-1.5 text-[#9e9ea6]">
-                    <div className="text-zinc-300">
-                      Specs: <strong className="text-white">{veh.year}</strong> • {veh.color} • {veh.fuelType}
-                    </div>
-                    <div className="font-mono text-xs truncate text-zinc-400">VIN: {veh.vin}</div>
-                    <div className="text-zinc-300">
-                      Odometer: <strong className="text-white">{veh.currentOdometer.toLocaleString()} km</strong>
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="rounded-lg bg-[#242330] px-2.5 py-1 font-mono text-xs font-bold text-white border border-white/10">
+                          {veh.registrationNumber}
+                        </span>
+                        {veh.backendVehicleId && (
+                          <span className="inline-flex items-center gap-1 text-[9px] font-mono text-zinc-400">
+                            <Database size={9} />
+                            <span>#{veh.backendVehicleId}</span>
+                          </span>
+                        )}
+                      </div>
+                      <h4 className="mt-2.5 font-heading text-lg font-bold uppercase text-white">
+                        {veh.make} {veh.model}
+                      </h4>
+                      <p className="text-xs text-[#9e9ea6]">
+                        {veh.variant || veh.bodyType} • {veh.year} • {veh.color}
+                      </p>
                     </div>
                   </div>
 
-                  <div className="mt-5 flex items-center justify-between border-t border-white/10 pt-3.5">
-                    <span className="text-zinc-400 font-medium">{vehJobs.length} service orders</span>
+                  <div className="mt-4 grid grid-cols-2 gap-2 text-xs border-t border-white/[0.08] pt-3">
+                    <div>
+                      <span className="text-[#9e9ea6]">Fuel / Trans:</span>
+                      <p className="font-semibold text-zinc-200">
+                        {veh.fuelType} / {veh.transmission}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-[#9e9ea6]">Odometer:</span>
+                      <p className="font-mono font-semibold text-zinc-200">
+                        {veh.currentOdometer.toLocaleString('en-IN')} KM
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 flex items-center justify-between border-t border-white/[0.08] pt-3">
+                    <span className="text-xs text-[#9e9ea6]">
+                      {vehJobs.length} Service Orders
+                    </span>
                     <Link
                       href={`/employee/vehicles/${veh.id}`}
-                      className="inline-flex items-center gap-1 font-bold text-[#ea0a0b] hover:underline uppercase text-xs tracking-wider"
+                      className="inline-flex items-center gap-1 text-xs font-bold uppercase text-[#ea0a0b] hover:text-red-400"
                     >
-                      <span>Passport</span>
+                      <span>Details</span>
                       <ArrowUpRight size={13} />
                     </Link>
                   </div>
                 </div>
               )
             })}
+
+            {vehicles.length === 0 && (
+              <div className="col-span-full py-12 text-center text-sm text-[#9e9ea6]">
+                No vehicles registered for this client yet. Click &quot;Add Vehicle&quot; to register one.
+              </div>
+            )}
           </div>
         </PanelCard>
 
-        {/* Customer Service Orders History */}
+        {/* Historical Service Orders */}
         <PanelCard
-          title={`Service History & Invoices (${jobs.length} Orders)`}
-          subtitle="Chronological record of all detailing jobs performed for this client"
+          title={`Service History & Orders (${jobs.length})`}
+          subtitle="All detailing, PPF, ceramic coating, and repair orders for this client"
         >
           <div className="overflow-hidden rounded-xl border border-white/[0.12] bg-[#1a1922]">
             <table className="w-full text-left text-xs sm:text-sm">
@@ -265,57 +365,59 @@ export default function CustomerDetailPage({
                 <tr className="bg-[#1e1d28] border-b border-white/[0.12] text-[11px] font-bold uppercase tracking-wider text-[#9e9ea6]">
                   <th className="px-5 py-3.5">Job Code</th>
                   <th className="px-5 py-3.5">Vehicle</th>
-                  <th className="px-5 py-3.5">Date</th>
-                  <th className="px-5 py-3.5">Status</th>
-                  <th className="px-5 py-3.5">Services Scope</th>
-                  <th className="px-5 py-3.5 text-right">Total Cost</th>
+                  <th className="px-5 py-3.5">Job Status</th>
                   <th className="px-5 py-3.5">Payment</th>
+                  <th className="px-5 py-3.5 text-right">Invoice Total</th>
+                  <th className="px-5 py-3.5 text-right">Balance Due</th>
                   <th className="px-5 py-3.5 text-right">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/[0.08]">
-                {jobs.map((job) => {
-                  const veh = store.vehicles.find((v) => v.id === job.vehicleId)
+                {jobs.map((j) => {
+                  const jobVeh = store.vehicles.find((v) => v.id === j.vehicleId)
                   return (
-                    <tr key={job.id} className="hover:bg-[#232230] transition-colors">
-                      <td className="px-5 py-4 font-heading font-bold text-white text-base">
-                        <Link href={`/employee/jobs/${job.id}`} className="hover:text-[#ea0a0b]">
-                          {job.jobCode}
+                    <tr key={j.id} className="hover:bg-[#232230] transition-colors">
+                      <td className="px-5 py-4 font-mono font-bold text-white">
+                        <Link
+                          href={`/employee/jobs/${j.id}`}
+                          className="hover:text-[#ea0a0b] transition-colors"
+                        >
+                          {j.jobCode}
                         </Link>
                       </td>
-                      <td className="px-5 py-4 font-semibold text-zinc-200">
-                        {veh?.make} {veh?.model}{' '}
-                        <span className="font-mono text-xs text-[#9e9ea6]">
-                          ({veh?.registrationNumber})
+                      <td className="px-5 py-4">
+                        <div className="font-semibold text-white">
+                          {jobVeh ? `${jobVeh.make} ${jobVeh.model}` : 'Vehicle'}
+                        </div>
+                        <div className="font-mono text-xs text-[#9e9ea6]">
+                          {jobVeh?.registrationNumber}
+                        </div>
+                      </td>
+                      <td className="px-5 py-4">
+                        <JobStatusBadge status={j.status} />
+                      </td>
+                      <td className="px-5 py-4">
+                        <PaymentStatusBadge status={j.paymentStatus} />
+                      </td>
+                      <td className="px-5 py-4 font-mono font-bold text-white text-right">
+                        ₹{j.actualFinalCost.toLocaleString('en-IN')}
+                      </td>
+                      <td className="px-5 py-4 text-right">
+                        <span
+                          className={cn(
+                            'font-mono font-semibold',
+                            j.balanceDue > 0 ? 'text-[#ea0a0b]' : 'text-emerald-400'
+                          )}
+                        >
+                          ₹{j.balanceDue.toLocaleString('en-IN')}
                         </span>
-                      </td>
-                      <td className="px-5 py-4 text-zinc-400">
-                        {new Date(job.createdAt).toLocaleDateString('en-IN', {
-                          month: 'short',
-                          day: 'numeric',
-                          year: 'numeric',
-                        })}
-                      </td>
-                      <td className="px-5 py-4">
-                        <JobStatusBadge status={job.status} />
-                      </td>
-                      <td className="px-5 py-4 text-zinc-300">
-                        {job.services.length > 0
-                          ? job.services.map((s) => s.title).join(', ')
-                          : 'Inspection / Intake'}
-                      </td>
-                      <td className="px-5 py-4 font-mono font-bold text-white text-base text-right">
-                        ₹{job.actualFinalCost.toLocaleString('en-IN')}
-                      </td>
-                      <td className="px-5 py-4">
-                        <PaymentStatusBadge status={job.paymentStatus} />
                       </td>
                       <td className="px-5 py-4 text-right">
                         <Link
-                          href={`/employee/jobs/${job.id}`}
-                          className="inline-flex items-center gap-1.5 rounded-xl border border-white/20 bg-[#242330] px-3.5 py-1.5 text-xs font-bold uppercase tracking-wider text-zinc-200 hover:bg-[#ea0a0b] hover:text-white transition-colors"
+                          href={`/employee/jobs/${j.id}`}
+                          className="inline-flex items-center gap-1 rounded-lg border border-white/20 bg-[#242330] px-3 py-1 text-xs font-bold uppercase text-zinc-200 hover:border-[#ea0a0b] hover:bg-[#ea0a0b] hover:text-white transition-all"
                         >
-                          <span>Manage</span>
+                          <span>Open</span>
                           <ArrowUpRight size={13} />
                         </Link>
                       </td>
@@ -327,7 +429,7 @@ export default function CustomerDetailPage({
 
             {jobs.length === 0 && (
               <div className="py-12 text-center text-sm text-[#9e9ea6]">
-                No jobs created for this customer yet.
+                No service history logged yet for this client.
               </div>
             )}
           </div>
@@ -338,23 +440,35 @@ export default function CustomerDetailPage({
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 backdrop-blur-sm">
             <div className="w-full max-w-lg rounded-2xl border border-white/20 bg-[#1a1922] p-6 sm:p-8 shadow-2xl">
               <div className="flex items-center justify-between border-b border-white/10 pb-4">
-                <h4 className="font-heading text-xl font-bold uppercase text-white">
-                  Add Vehicle to Customer Garage
-                </h4>
+                <div>
+                  <h4 className="font-heading text-xl font-bold uppercase text-white">
+                    Add Vehicle to Garage
+                  </h4>
+                  <p className="text-xs text-zinc-400 mt-0.5">
+                    Syncs with Backend Vehicle Registry
+                  </p>
+                </div>
                 <button
                   type="button"
                   onClick={() => setAddVehicleModalOpen(false)}
-                  className="rounded-lg p-1 text-zinc-400 hover:bg-white/10 hover:text-white"
+                  className="rounded-lg p-1 text-zinc-400 hover:bg-white/10 hover:text-white cursor-pointer"
                 >
                   <X size={20} />
                 </button>
               </div>
 
+              {vehError && (
+                <div className="mt-4 flex items-center gap-2 rounded-xl border border-red-500/30 bg-red-950/40 p-3 text-xs text-red-200">
+                  <AlertCircle size={15} className="shrink-0 text-red-400" />
+                  <span>{vehError}</span>
+                </div>
+              )}
+
               <form onSubmit={handleAddVehicle} className="mt-6 space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="col-span-2">
                     <label className="block text-xs font-bold uppercase tracking-wider text-zinc-300">
-                      License Plate *
+                      License Plate * (e.g. MH01DX0911)
                     </label>
                     <input
                       type="text"
@@ -363,7 +477,7 @@ export default function CustomerDetailPage({
                       onChange={(e) =>
                         setVehForm({ ...vehForm, registrationNumber: e.target.value.toUpperCase() })
                       }
-                      placeholder="e.g. MH 01 DX 0911"
+                      placeholder="MH01DX0911"
                       className="mt-1.5 w-full rounded-xl border border-white/20 bg-[#1d1c26] px-4 py-2.5 text-sm text-white font-mono focus:border-[#ea0a0b] focus:outline-none"
                     />
                   </div>
@@ -398,14 +512,19 @@ export default function CustomerDetailPage({
 
                   <div>
                     <label className="block text-xs font-bold uppercase tracking-wider text-zinc-300">
-                      Year
+                      Vehicle Type
                     </label>
-                    <input
-                      type="number"
-                      value={vehForm.year}
-                      onChange={(e) => setVehForm({ ...vehForm, year: Number(e.target.value) })}
+                    <select
+                      value={vehForm.bodyType}
+                      onChange={(e) => setVehForm({ ...vehForm, bodyType: e.target.value as any })}
                       className="mt-1.5 w-full rounded-xl border border-white/20 bg-[#1d1c26] px-4 py-2.5 text-sm text-white focus:border-[#ea0a0b] focus:outline-none"
-                    />
+                    >
+                      <option value="SEDAN">Sedan</option>
+                      <option value="SUV">SUV</option>
+                      <option value="COUPE">Coupe</option>
+                      <option value="SUPERCAR">Supercar</option>
+                      <option value="HATCHBACK">Hatchback</option>
+                    </select>
                   </div>
 
                   <div>
@@ -426,15 +545,146 @@ export default function CustomerDetailPage({
                   <button
                     type="button"
                     onClick={() => setAddVehicleModalOpen(false)}
-                    className="rounded-xl border border-white/20 bg-[#242330] px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-zinc-300 hover:bg-[#2c2b3a] hover:text-white"
+                    className="rounded-xl border border-white/20 bg-[#242330] px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-zinc-300 hover:bg-[#2c2b3a] hover:text-white cursor-pointer"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="rounded-xl bg-[#ea0a0b] px-6 py-2.5 text-xs font-bold uppercase tracking-wider text-white hover:bg-red-600 shadow-lg shadow-red-950/40"
+                    disabled={isSubmittingVeh}
+                    className="flex items-center gap-2 rounded-xl bg-[#ea0a0b] px-6 py-2.5 text-xs font-bold uppercase tracking-wider text-white hover:bg-red-600 shadow-lg shadow-red-950/40 disabled:opacity-60 cursor-pointer"
                   >
-                    Save Vehicle
+                    {isSubmittingVeh && <Loader2 size={14} className="animate-spin" />}
+                    <span>{isSubmittingVeh ? 'Registering...' : 'Save Vehicle'}</span>
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Modal: Edit Customer */}
+        {editCustomerModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 backdrop-blur-sm">
+            <div className="w-full max-w-lg rounded-2xl border border-white/20 bg-[#1a1922] p-6 sm:p-8 shadow-2xl">
+              <div className="flex items-center justify-between border-b border-white/10 pb-4">
+                <div>
+                  <h4 className="font-heading text-xl font-bold uppercase text-white">
+                    Edit Customer Profile
+                  </h4>
+                  <p className="text-xs text-zinc-400 mt-0.5">
+                    Syncs updates to Backend Database
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setEditCustomerModalOpen(false)}
+                  className="rounded-lg p-1 text-zinc-400 hover:bg-white/10 hover:text-white cursor-pointer"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              {custError && (
+                <div className="mt-4 flex items-center gap-2 rounded-xl border border-red-500/30 bg-red-950/40 p-3 text-xs text-red-200">
+                  <AlertCircle size={15} className="shrink-0 text-red-400" />
+                  <span>{custError}</span>
+                </div>
+              )}
+
+              <form onSubmit={handleUpdateCustomer} className="mt-6 space-y-4">
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-zinc-300">
+                    Full Name *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editForm.fullName}
+                    onChange={(e) => setEditForm({ ...editForm, fullName: e.target.value })}
+                    className="mt-1.5 w-full rounded-xl border border-white/20 bg-[#1d1c26] px-4 py-2.5 text-sm text-white focus:border-[#ea0a0b] focus:outline-none"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-zinc-300">
+                      Mobile Phone *
+                    </label>
+                    <input
+                      type="tel"
+                      required
+                      value={editForm.phone}
+                      onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                      className="mt-1.5 w-full rounded-xl border border-white/20 bg-[#1d1c26] px-4 py-2.5 text-sm text-white focus:border-[#ea0a0b] focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-zinc-300">
+                      Email Address *
+                    </label>
+                    <input
+                      type="email"
+                      required
+                      value={editForm.email}
+                      onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                      className="mt-1.5 w-full rounded-xl border border-white/20 bg-[#1d1c26] px-4 py-2.5 text-sm text-white focus:border-[#ea0a0b] focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-zinc-300">
+                      City
+                    </label>
+                    <input
+                      type="text"
+                      value={editForm.city}
+                      onChange={(e) => setEditForm({ ...editForm, city: e.target.value })}
+                      className="mt-1.5 w-full rounded-xl border border-white/20 bg-[#1d1c26] px-4 py-2.5 text-sm text-white focus:border-[#ea0a0b] focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-zinc-300">
+                      Address
+                    </label>
+                    <input
+                      type="text"
+                      value={editForm.address}
+                      onChange={(e) => setEditForm({ ...editForm, address: e.target.value })}
+                      className="mt-1.5 w-full rounded-xl border border-white/20 bg-[#1d1c26] px-4 py-2.5 text-sm text-white focus:border-[#ea0a0b] focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-zinc-300">
+                    Client Notes
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={editForm.notes}
+                    onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
+                    className="mt-1.5 w-full rounded-xl border border-white/20 bg-[#1d1c26] px-4 py-2.5 text-sm text-white focus:border-[#ea0a0b] focus:outline-none"
+                  />
+                </div>
+
+                <div className="flex justify-end gap-3 pt-3">
+                  <button
+                    type="button"
+                    onClick={() => setEditCustomerModalOpen(false)}
+                    className="rounded-xl border border-white/20 bg-[#242330] px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-zinc-300 hover:bg-[#2c2b3a] hover:text-white cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isUpdatingCust}
+                    className="flex items-center gap-2 rounded-xl bg-[#ea0a0b] px-6 py-2.5 text-xs font-bold uppercase tracking-wider text-white hover:bg-red-600 shadow-lg shadow-red-950/40 disabled:opacity-60 cursor-pointer"
+                  >
+                    {isUpdatingCust && <Loader2 size={14} className="animate-spin" />}
+                    <span>{isUpdatingCust ? 'Updating...' : 'Save Changes'}</span>
                   </button>
                 </div>
               </form>

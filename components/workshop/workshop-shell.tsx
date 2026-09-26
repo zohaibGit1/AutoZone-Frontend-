@@ -33,7 +33,9 @@ import {
   Users,
   Wrench,
   X,
+  Database,
 } from 'lucide-react'
+import { healthApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
 interface WorkshopShellProps {
@@ -58,6 +60,17 @@ export function WorkshopShell({
   const [searchQuery, setSearchQuery] = useState('')
   const [roleDropdownOpen, setRoleDropdownOpen] = useState(false)
   const [notificationOpen, setNotificationOpen] = useState(false)
+  const [backendOnline, setBackendOnline] = useState<boolean | null>(null)
+
+  useEffect(() => {
+    let isMounted = true
+    healthApi.checkHealth().then((res) => {
+      if (isMounted) setBackendOnline(res.status === 'UP')
+    })
+    return () => {
+      isMounted = false
+    }
+  }, [])
 
   // Keyboard shortcut Cmd+K or Ctrl+K for search
   useEffect(() => {
@@ -385,6 +398,34 @@ export function WorkshopShell({
             <div className="hidden items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-950/30 px-3 py-1 text-xs font-semibold text-emerald-400 md:flex">
               <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
               <span>4 / 6 Bays Active</span>
+            </div>
+
+            {/* Backend API Connection Status */}
+            <div
+              className={cn(
+                'hidden items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold sm:flex',
+                backendOnline === true
+                  ? 'border-emerald-500/30 bg-emerald-950/30 text-emerald-400'
+                  : backendOnline === false
+                  ? 'border-zinc-700 bg-zinc-900/60 text-zinc-400'
+                  : 'border-white/10 bg-white/5 text-zinc-400'
+              )}
+              title={
+                backendOnline
+                  ? 'Spring Boot Backend API is connected'
+                  : 'Spring Boot Backend is offline (Using cached local data)'
+              }
+            >
+              <span
+                className={cn(
+                  'h-1.5 w-1.5 rounded-full',
+                  backendOnline === true
+                    ? 'bg-emerald-400 animate-pulse'
+                    : 'bg-zinc-500'
+                )}
+              />
+              <Database size={11} />
+              <span>{backendOnline ? 'API Connected' : 'API Standby'}</span>
             </div>
 
             {/* Role Switcher */}

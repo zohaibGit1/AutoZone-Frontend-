@@ -36,17 +36,17 @@ function Counter({
   useEffect(() => {
     if (!start) return
 
-    // Safely check prefers-reduced-motion inside browser effect
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    // Safely check prefers-reduced-motion only after mount inside effect
+    if (typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
       setCount(target)
       return
     }
 
     let startTime: number | null = null
-    let rafId: number
+    let rafId: number | null = null
 
     const step = (timestamp: number) => {
-      if (!startTime) startTime = timestamp
+      if (startTime === null) startTime = timestamp
       const elapsed = timestamp - startTime
       const progress = Math.min(elapsed / duration, 1)
       const eased = easeOutCubic(progress)
@@ -55,16 +55,18 @@ function Counter({
       setCount(nextCount)
 
       if (progress < 1) {
-        rafId = requestAnimationFrame(step)
+        rafId = window.requestAnimationFrame(step)
       } else {
         setCount(target)
       }
     }
 
-    rafId = requestAnimationFrame(step)
+    rafId = window.requestAnimationFrame(step)
 
     return () => {
-      if (rafId) cancelAnimationFrame(rafId)
+      if (rafId !== null) {
+        window.cancelAnimationFrame(rafId)
+      }
     }
   }, [start, target, duration])
 
@@ -85,21 +87,27 @@ export function Stats() {
     const el = sectionRef.current
     if (!el || hasTriggeredRef.current) return
 
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    if (typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
       hasTriggeredRef.current = true
       setIsInView(true)
       return
     }
 
+    if (typeof IntersectionObserver === 'undefined') {
+      setIsInView(true)
+      return
+    }
+
     const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting && !hasTriggeredRef.current) {
+      (entries) => {
+        const [entry] = entries
+        if (entry && entry.isIntersecting && !hasTriggeredRef.current) {
           hasTriggeredRef.current = true
           setIsInView(true)
           observer.disconnect()
         }
       },
-      { threshold: 0.2, rootMargin: '0px 0px -40px 0px' }
+      { threshold: 0.15, rootMargin: '0px 0px -20px 0px' }
     )
 
     observer.observe(el)

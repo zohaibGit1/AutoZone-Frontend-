@@ -72,6 +72,7 @@ export type PanelLocation =
 
 export interface Customer {
   id: string
+  backendCustomerId?: number
   fullName: string
   phone: string
   email: string
@@ -87,6 +88,7 @@ export interface Customer {
 
 export interface Vehicle {
   id: string
+  backendVehicleId?: number
   customerId: string
   registrationNumber: string // License plate (e.g. MH 02 CD 4589)
   make: string               // e.g. Porsche, BMW, Mercedes-Benz
@@ -257,6 +259,9 @@ export interface InventoryItem {
 export interface Job {
   id: string                  // e.g. "AZ-2026-101"
   jobCode: string             // "AZ-101"
+  backendVisitId?: number
+  backendInvoiceId?: number
+  backendInvoiceNumber?: string
   customerId: string
   vehicleId: string
   status: JobStatus

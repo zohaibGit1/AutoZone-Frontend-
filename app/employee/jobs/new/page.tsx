@@ -39,6 +39,8 @@ export default function NewJobPage() {
   const store = useWorkshopStore()
 
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3 | 4 | 5>(1)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
 
   // STEP 1 — Customer State
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>('')
@@ -225,83 +227,93 @@ export default function NewJobPage() {
   const estimatedTotal = taxable + taxAmount
 
   // Final Submit
-  const handleCreateJob = () => {
-    // 1. Ensure Customer Exists or Create New
-    let finalCustId = selectedCustomerId
-    if (newCustomerMode || !finalCustId) {
-      const created = store.repository.createCustomer({
-        fullName: customerForm.fullName || 'Walk-In Customer',
-        phone: customerForm.phone || '+91 90000 00000',
-        email: customerForm.email || 'customer@autozone.com',
-        address: customerForm.address || 'Workshop Intake',
-        city: customerForm.city || 'Mumbai',
-        notes: customerForm.notes,
-      })
-      finalCustId = created.id
-    }
+  const handleCreateJob = async () => {
+    setIsSubmitting(true)
+    setSubmitError(null)
 
-    // 2. Ensure Vehicle Exists or Create New
-    let finalVehId = selectedVehicleId
-    if (newVehicleMode || !finalVehId) {
-      const createdVeh = store.repository.createVehicle({
-        customerId: finalCustId,
-        registrationNumber: vehicleForm.registrationNumber || 'MH 01 NEW',
-        make: vehicleForm.make || 'Custom',
-        model: vehicleForm.model || 'Model',
-        variant: vehicleForm.variant,
-        year: Number(vehicleForm.year) || 2024,
-        color: vehicleForm.color || 'Gloss Black',
-        fuelType: vehicleForm.fuelType,
-        transmission: vehicleForm.transmission,
-        vin: vehicleForm.vin || `VIN${Date.now()}`,
-        currentOdometer: Number(checkInOdometer) || 1000,
-        bodyType: vehicleForm.bodyType,
-        notes: vehicleForm.notes,
-      })
-      finalVehId = createdVeh.id
-    }
-
-    // 3. Build Services Array with calculated totalPrices
-    const formattedServices: JobServiceItem[] = selectedServices.map((s, idx) => {
-      const sTaxable = Math.max(0, s.quantity * s.unitPrice - (s.discount || 0))
-      const sTax = Math.round((sTaxable * (s.taxRate || 18)) / 100)
-      return {
-        ...s,
-        id: `jsrv-${Date.now().toString(36)}-${idx}`,
-        totalPrice: sTaxable + sTax,
+    try {
+      // 1. Ensure Customer Exists or Create New on Backend
+      let finalCustId = selectedCustomerId
+      if (newCustomerMode || !finalCustId) {
+        const cleanPhone = (customerForm.phone || '9820012345').replace(/[^0-9]/g, '').slice(-10)
+        const created = await store.repository.registerCustomerBackend({
+          fullName: customerForm.fullName || 'Walk-In Customer',
+          phone: cleanPhone.length === 10 ? cleanPhone : '9820012345',
+          email: customerForm.email || 'customer@autozone.com',
+          address: customerForm.address || 'Workshop Intake',
+          city: customerForm.city || 'Mumbai',
+          notes: customerForm.notes,
+        })
+        finalCustId = created.id
       }
-    })
 
-    // 4. Create Job in Repository
-    const createdJob = store.repository.createJob({
-      customerId: finalCustId,
-      vehicleId: finalVehId,
-      priority: jobPriority,
-      assignedEmployeeId,
-      assignedTechnicianIds,
-      bayNumber,
-      checkIn: {
-        checkInDate: new Date().toISOString(),
-        receivedByEmployeeId: assignedEmployeeId,
-        odometerReading: Number(checkInOdometer) || 1000,
-        fuelLevel,
-        interiorCondition,
-        glassCondition,
-        tyreCondition,
-        wheelCondition,
-        personalBelongingsRemoved,
-        preExistingDamages: damages,
-        checkInNotes,
-      },
-      customerComplaints,
-      customerComplaintNotes: complaintNotes,
-      inspectionFindings,
-      services: formattedServices,
-      estimatedCost: estimatedTotal,
-      expectedDeliveryDate,
-    })
+      // 2. Ensure Vehicle Exists or Create New on Backend
+      let finalVehId = selectedVehicleId
+      if (newVehicleMode || !finalVehId) {
+        const cleanPlate = (vehicleForm.registrationNumber || 'MH01AB1234').toUpperCase().replace(/[^A-Z0-9]/g, '')
+        const createdVeh = await store.repository.registerVehicleBackend({
+          customerId: finalCustId,
+          registrationNumber: cleanPlate || 'MH01AB1234',
+          make: vehicleForm.make || 'Custom',
+          model: vehicleForm.model || 'Model',
+          variant: vehicleForm.variant,
+          year: Number(vehicleForm.year) || 2024,
+          color: vehicleForm.color || 'Gloss Black',
+          fuelType: vehicleForm.fuelType,
+          transmission: vehicleForm.transmission,
+          vin: vehicleForm.vin || `VIN${Date.now()}`,
+          currentOdometer: Number(checkInOdometer) || 1000,
+          bodyType: vehicleForm.bodyType,
+          notes: vehicleForm.notes,
+        })
+        finalVehId = createdVeh.id
+      }
 
-    router.push(`/employee/jobs/${createdJob.id}`)
+      // 3. Build Services Array with calculated totalPrices
+      const formattedServices: JobServiceItem[] = selectedServices.map((s, idx) => {
+        const sTaxable = Math.max(0, s.quantity * s.unitPrice - (s.discount || 0))
+        const sTax = Math.round((sTaxable * (s.taxRate || 18)) / 100)
+        return {
+          ...s,
+          id: `jsrv-${Date.now().toString(36)}-${idx}`,
+          totalPrice: sTaxable + sTax,
+        }
+      })
+
+      // 4. Create Job in Backend + Repository
+      const createdJob = await store.repository.createJobBackend({
+        customerId: finalCustId,
+        vehicleId: finalVehId,
+        priority: jobPriority,
+        assignedEmployeeId,
+        assignedTechnicianIds,
+        bayNumber,
+        checkIn: {
+          checkInDate: new Date().toISOString(),
+          receivedByEmployeeId: assignedEmployeeId,
+          odometerReading: Number(checkInOdometer) || 1000,
+          fuelLevel,
+          interiorCondition,
+          glassCondition,
+          tyreCondition,
+          wheelCondition,
+          personalBelongingsRemoved,
+          preExistingDamages: damages,
+          checkInNotes,
+        },
+        customerComplaints,
+        customerComplaintNotes: complaintNotes,
+        inspectionFindings,
+        services: formattedServices,
+        estimatedCost: estimatedTotal,
+        expectedDeliveryDate,
+      })
+
+      router.push(`/employee/jobs/${createdJob.id}`)
+    } catch (err: any) {
+      setSubmitError(err.message || 'Failed to complete job intake on backend.')
+      setIsSubmitting(false)
+    }
   }
 
   const customerSearchResults = store.customers.filter((c) =>
@@ -1412,11 +1424,19 @@ export default function NewJobPage() {
                   </div>
                 </div>
 
+                {submitError && (
+                  <div className="flex items-center gap-2 rounded-xl border border-red-500/30 bg-red-950/40 p-3.5 text-xs text-red-200">
+                    <AlertCircle size={16} className="shrink-0 text-red-400" />
+                    <span>{submitError}</span>
+                  </div>
+                )}
+
                 <div className="flex justify-between pt-2">
                   <button
                     type="button"
                     onClick={() => setCurrentStep(4)}
-                    className="flex items-center gap-2 rounded-xl border border-white/20 bg-[#242330] px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-zinc-300 hover:bg-[#2c2b3a] hover:text-white"
+                    disabled={isSubmitting}
+                    className="flex items-center gap-2 rounded-xl border border-white/20 bg-[#242330] px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-zinc-300 hover:bg-[#2c2b3a] hover:text-white disabled:opacity-50 cursor-pointer"
                   >
                     <ArrowLeft size={15} />
                     <span>Back</span>
@@ -1425,10 +1445,11 @@ export default function NewJobPage() {
                   <button
                     type="button"
                     onClick={handleCreateJob}
-                    className="flex items-center gap-2.5 rounded-xl bg-[#ea0a0b] px-9 py-3.5 font-heading text-sm font-bold uppercase tracking-wider text-white shadow-xl shadow-red-950/60 hover:bg-red-600 active:scale-[0.98] transition-all"
+                    disabled={isSubmitting}
+                    className="flex items-center gap-2.5 rounded-xl bg-[#ea0a0b] px-9 py-3.5 font-heading text-sm font-bold uppercase tracking-wider text-white shadow-xl shadow-red-950/60 hover:bg-red-600 active:scale-[0.98] transition-all disabled:opacity-60 cursor-pointer"
                   >
                     <FileCheck size={18} />
-                    <span>Generate Service Order & Check-In</span>
+                    <span>{isSubmitting ? 'Syncing with Backend...' : 'Generate Service Order & Check-In'}</span>
                   </button>
                 </div>
               </div>
