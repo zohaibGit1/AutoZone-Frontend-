@@ -3,13 +3,14 @@
 import { useEffect, useRef, useState, type ReactNode } from "react"
 
 type Direction = "up" | "down" | "left" | "right" | "none"
+type ElementType = "div" | "section" | "li" | "span"
 
 interface RevealProps {
   children: ReactNode
   className?: string
   direction?: Direction
   delay?: number
-  as?: "div" | "section" | "li" | "span"
+  as?: ElementType
 }
 
 const OFFSET: Record<Direction, string> = {
@@ -21,7 +22,7 @@ const OFFSET: Record<Direction, string> = {
 }
 
 export function Reveal({ children, className, direction = "up", delay = 0, as = "div" }: RevealProps) {
-  const ref = useRef<HTMLElement>(null)
+  const ref = useRef<HTMLDivElement | null>(null)
   const [visible, setVisible] = useState(false)
 
   useEffect(() => {
@@ -45,11 +46,11 @@ export function Reveal({ children, className, direction = "up", delay = 0, as = 
     return () => observer.disconnect()
   }, [])
 
-  const Tag = as as keyof React.JSX.IntrinsicElements
+  const Tag = as
 
   return (
     <Tag
-      // @ts-expect-error ref typing across polymorphic tag
+      // @ts-ignore polymorphic tag ref
       ref={ref}
       className={className}
       style={{

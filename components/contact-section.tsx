@@ -21,7 +21,7 @@ export function ContactSection() {
           <div className="mt-10 space-y-3 text-white">
             <p>785 15th Street, Office 478, Berlin, DE 81566</p>
             <p>+1 800 555 25 69</p>
-            <p>info@detailx.com</p>
+            <p>info@autozone.com</p>
           </div>
         </div>
         <form
