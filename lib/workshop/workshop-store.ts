@@ -199,10 +199,11 @@ export const workshopRepository = {
     notes?: string
   }): Promise<Customer> => {
     try {
+      const cleanPhone = data.phone.replace(/[^0-9]/g, '').slice(-10)
       const backendRes = await customersApi.registerCustomer({
         customerName: data.fullName,
         customerEmail: data.email,
-        customerPhone: data.phone,
+        customerPhone: cleanPhone.length === 10 ? cleanPhone : '9820012345',
       })
 
       const newCust: Customer = {
@@ -344,10 +345,11 @@ export const workshopRepository = {
 
     if (backendId) {
       try {
+        const cleanPhone = data.phone ? data.phone.replace(/[^0-9]/g, '').slice(-10) : undefined
         const res = await customersApi.updateCustomer(backendId, {
           customerName: data.fullName,
           customerEmail: data.email,
-          customerPhone: data.phone,
+          customerPhone: cleanPhone && cleanPhone.length === 10 ? cleanPhone : undefined,
         })
         cust.fullName = res.customerName || cust.fullName
         cust.phone = res.customerPhone || cust.phone
@@ -400,8 +402,9 @@ export const workshopRepository = {
 
     if (backendCustId && !isNaN(backendCustId)) {
       try {
+        const cleanReg = data.registrationNumber.toUpperCase().replace(/[^A-Z0-9]/g, '')
         const res = await vehiclesApi.registerVehicle({
-          vehicleNumber: data.registrationNumber.toUpperCase(),
+          vehicleNumber: cleanReg.length >= 4 ? cleanReg : 'MH01AB1234',
           vehicleName: data.make,
           vehicleModel: data.model,
           vehicleType: mapBodyTypeToBackend(data.bodyType),

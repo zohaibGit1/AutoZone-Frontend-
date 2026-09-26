@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
 
-export default function EmployeeRootPage() {
-  redirect('/employee/dashboard')
+export default function EmployeePage() {
+  redirect('/admin/customers')
 }
