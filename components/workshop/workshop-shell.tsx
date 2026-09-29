@@ -1,20 +1,18 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import React, { useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import {
   Car,
   Clock,
-  Database,
   DollarSign,
   ExternalLink,
   Menu,
   Users,
   X,
 } from 'lucide-react'
-import { healthApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
 interface WorkshopShellProps {
@@ -32,22 +30,6 @@ export function WorkshopShell({
 }: WorkshopShellProps) {
   const pathname = usePathname()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const [backendOnline, setBackendOnline] = useState<boolean | null>(null)
-
-  useEffect(() => {
-    let isMounted = true
-    const checkHealth = () => {
-      healthApi.checkHealth().then((res) => {
-        if (isMounted) setBackendOnline(res.status === 'UP')
-      })
-    }
-    checkHealth()
-    const interval = setInterval(checkHealth, 30000)
-    return () => {
-      isMounted = false
-      clearInterval(interval)
-    }
-  }, [])
 
   // Strict backend-supported Admin navigation links
   const adminLinks = [
@@ -70,11 +52,6 @@ export function WorkshopShell({
       label: 'Invoices & Payments',
       href: '/admin/invoices',
       icon: <DollarSign size={18} />,
-    },
-    {
-      label: 'Backend Health',
-      href: '/admin/health',
-      icon: <Database size={18} />,
     },
   ]
 
@@ -153,43 +130,8 @@ export function WorkshopShell({
           </div>
         </div>
 
-        {/* Bottom Backend Status & Public Website Link */}
-        <div className="shrink-0 border-t border-white/10 p-3 bg-[#0d0c0f] space-y-2">
-          <div className="flex items-center justify-between rounded-xl bg-[#17161b] p-2.5 border border-white/10">
-            <div className="flex items-center gap-2 overflow-hidden">
-              <span
-                className={cn(
-                  'h-2 w-2 rounded-full shrink-0',
-                  backendOnline === true
-                    ? 'bg-emerald-400 animate-pulse'
-                    : backendOnline === false
-                    ? 'bg-red-500'
-                    : 'bg-zinc-500'
-                )}
-              />
-              <div className="overflow-hidden">
-                <div className="truncate text-xs font-bold text-white">
-                  Spring Boot API
-                </div>
-                <div className="truncate text-[10px] uppercase tracking-wider text-[#8b8b90]">
-                  {backendOnline === true
-                    ? 'Online (Port 8081)'
-                    : backendOnline === false
-                    ? 'Offline / Standby'
-                    : 'Checking Status...'}
-                </div>
-              </div>
-            </div>
-
-            <Link
-              href="/admin/health"
-              title="View Health Actuator"
-              className="rounded-lg p-1.5 text-zinc-400 hover:bg-white/10 hover:text-white transition-colors"
-            >
-              <Database size={14} />
-            </Link>
-          </div>
-
+        {/* Bottom Public Website Link */}
+        <div className="shrink-0 border-t border-white/10 p-3 bg-[#0d0c0f]">
           <Link
             href="/"
             target="_blank"
@@ -227,40 +169,13 @@ export function WorkshopShell({
             </div>
           </div>
 
-          {/* Right: Backend API Connection Status & Public Site Link */}
+          {/* Right: Public Site Link */}
           <div className="flex items-center gap-3 sm:gap-4">
-            {/* Backend API Connection Status */}
-            <Link
-              href="/admin/health"
-              className={cn(
-                'flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition-colors',
-                backendOnline === true
-                  ? 'border-emerald-500/30 bg-emerald-950/30 text-emerald-400 hover:bg-emerald-950/50'
-                  : backendOnline === false
-                  ? 'border-red-900/40 bg-red-950/30 text-red-400 hover:bg-red-950/50'
-                  : 'border-white/10 bg-white/5 text-zinc-400'
-              )}
-              title="Spring Boot Backend Status (Actuator Health)"
-            >
-              <span
-                className={cn(
-                  'h-1.5 w-1.5 rounded-full',
-                  backendOnline === true
-                    ? 'bg-emerald-400 animate-pulse'
-                    : backendOnline === false
-                    ? 'bg-red-500'
-                    : 'bg-zinc-500'
-                )}
-              />
-              <Database size={12} />
-              <span>{backendOnline ? 'Backend: Online' : 'Backend: Standby'}</span>
-            </Link>
-
             {/* Quick Public Site Link */}
             <Link
               href="/"
               target="_blank"
-              className="hidden rounded-xl border border-white/15 bg-[#17161b] px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-zinc-300 hover:bg-white/5 hover:text-white sm:flex items-center gap-2"
+              className="rounded-xl border border-white/15 bg-[#17161b] px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-zinc-300 hover:bg-white/5 hover:text-white flex items-center gap-2"
             >
               <span>Public Site</span>
               <ExternalLink size={13} />
@@ -393,32 +308,8 @@ export function WorkshopShell({
               </div>
             </div>
 
-            {/* Bottom Backend Status & Website Link */}
-            <div className="shrink-0 border-t border-white/10 bg-[#0d0c0f] p-3 space-y-2">
-              <Link
-                href="/admin/health"
-                onClick={() => setMobileMenuOpen(false)}
-                className="flex items-center justify-between rounded-xl bg-[#17161b] p-2.5 border border-white/10"
-              >
-                <div className="flex items-center gap-2 overflow-hidden">
-                  <span
-                    className={cn(
-                      'h-2 w-2 rounded-full shrink-0',
-                      backendOnline === true ? 'bg-emerald-400 animate-pulse' : 'bg-zinc-500'
-                    )}
-                  />
-                  <div className="overflow-hidden">
-                    <div className="truncate text-xs font-bold text-white">
-                      Spring Boot API
-                    </div>
-                    <div className="truncate text-[9px] uppercase tracking-wider text-[#8b8b90]">
-                      {backendOnline ? 'Online' : 'Standby'}
-                    </div>
-                  </div>
-                </div>
-                <Database size={14} className="text-zinc-400" />
-              </Link>
-
+            {/* Bottom Website Link */}
+            <div className="shrink-0 border-t border-white/10 bg-[#0d0c0f] p-3">
               <Link
                 href="/"
                 target="_blank"

@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
 
 export default function AdminSettingsRedirect() {
-  redirect('/admin/health')
+  redirect('/admin/customers')
 }

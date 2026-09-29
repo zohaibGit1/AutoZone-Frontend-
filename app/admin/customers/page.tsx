@@ -59,25 +59,83 @@ export default function AdminCustomersPage() {
     customerEmail: '',
   })
 
-  // 1. Search Customer via Backend GET /api/v1/customers/history?search=...
+  // Filtered customer list based on search query (name, phone, email, id)
+  const filteredCustomers = store.customers.filter((c) => {
+    if (!searchQuery.trim()) return true
+    const q = searchQuery.trim().toLowerCase()
+    const phoneDigits = q.replace(/\D/g, '')
+    const cPhoneDigits = c.phone.replace(/\D/g, '')
+
+    const matchesName = c.fullName.toLowerCase().includes(q)
+    const matchesEmail = c.email.toLowerCase().includes(q)
+    const matchesPhone = c.phone.includes(q) || (phoneDigits.length > 0 && cPhoneDigits.includes(phoneDigits))
+    const matchesId = c.id.toLowerCase().includes(q) || (c.backendCustomerId && String(c.backendCustomerId).includes(q))
+
+    return matchesName || matchesEmail || matchesPhone || matchesId
+  })
+
+  // 1. Search Customer via Name / Phone / Email / Backend API
   const handleSearch = async (e?: React.FormEvent) => {
     if (e) e.preventDefault()
-    if (!searchQuery.trim()) return
+    const q = searchQuery.trim()
+    if (!q) {
+      setSearchResult(null)
+      setSearchMessage(null)
+      return
+    }
 
     setIsSearching(true)
     setSearchMessage(null)
-    setSearchResult(null)
 
+    // Local instant match from store
+    const qLower = q.toLowerCase()
+    const phoneDigits = q.replace(/\D/g, '')
+    const localMatch = store.customers.find((c) => {
+      const cPhoneDigits = c.phone.replace(/\D/g, '')
+      return (
+        c.fullName.toLowerCase().includes(qLower) ||
+        c.email.toLowerCase().includes(qLower) ||
+        c.phone.includes(q) ||
+        (phoneDigits.length > 0 && cPhoneDigits.includes(phoneDigits)) ||
+        c.id.toLowerCase().includes(qLower) ||
+        (c.backendCustomerId && String(c.backendCustomerId).includes(qLower))
+      )
+    })
+
+    if (localMatch) {
+      const custVehicles = store.repository.getVehiclesByCustomerId(localMatch.id)
+      const localResult: CustomerHistoryDto = {
+        customerId: localMatch.backendCustomerId || Number(localMatch.id.replace(/\D/g, '')) || 1,
+        customerName: localMatch.fullName,
+        customerPhone: localMatch.phone,
+        customerEmail: localMatch.email,
+        vehicles: custVehicles.map((v) => ({
+          vehicleId: v.backendVehicleId || Number(v.id.replace(/\D/g, '')) || 1,
+          vehicleName: v.make,
+          vehicleModel: v.model,
+          vehicleNumber: v.registrationNumber,
+          vehicleType: (v.bodyType as any) || 'CAR',
+        })),
+      }
+      setSearchResult(localResult)
+      setSearchMessage(`Found customer "${localMatch.fullName}" (${localMatch.phone} • ${localMatch.email})`)
+    }
+
+    // Try backend API query in parallel/fallback
     try {
-      const res = await store.repository.searchCustomerHistoryBackend(searchQuery.trim())
+      const res = await store.repository.searchCustomerHistoryBackend(q)
       if (res && res.customerId) {
         setSearchResult(res)
         setSearchMessage(`Found customer "${res.customerName}" (ID: ${res.customerId}) in database.`)
-      } else {
-        setSearchMessage(`No customer found for "${searchQuery}". You can register them below.`)
+      } else if (!localMatch) {
+        setSearchResult(null)
+        setSearchMessage(`No customer found for "${q}". You can register them below.`)
       }
     } catch {
-      setSearchMessage(`Search query failed. Showing matching cached records.`)
+      if (!localMatch) {
+        setSearchResult(null)
+        setSearchMessage(`No customer found for "${q}". You can register them below.`)
+      }
     } finally {
       setIsSearching(false)
     }
@@ -212,8 +270,8 @@ export default function AdminCustomersPage() {
 
         {/* Search Matrix */}
         <PanelCard
-          title="Customer Lookup (Backend Search)"
-          subtitle="Query the Spring Boot backend by 10-digit mobile number or customer email"
+          title="Customer Search & Lookup"
+          subtitle="Search customer records by Name, 10-digit Mobile Number, or Email address"
         >
           <form onSubmit={handleSearch} className="flex flex-col gap-3 sm:flex-row">
             <div className="relative flex-1">
@@ -224,22 +282,42 @@ export default function AdminCustomersPage() {
               <input
                 type="text"
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Enter 10-digit phone number (e.g. 9820012345) or email..."
-                className="h-11 w-full rounded-xl border border-white/20 bg-[#1d1c26] pl-10 pr-4 text-sm text-white placeholder-zinc-500 focus:border-[#ea0a0b] focus:ring-1 focus:ring-[#ea0a0b] focus:outline-none transition-all"
+                onChange={(e) => {
+                  setSearchQuery(e.target.value)
+                  if (!e.target.value.trim()) {
+                    setSearchResult(null)
+                    setSearchMessage(null)
+                  }
+                }}
+                placeholder="Search by customer name, mobile number, or email..."
+                className="h-11 w-full rounded-xl border border-white/20 bg-[#1d1c26] pl-10 pr-10 text-sm text-white placeholder-zinc-500 focus:border-[#ea0a0b] focus:ring-1 focus:ring-[#ea0a0b] focus:outline-none transition-all"
               />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearchQuery('')
+                    setSearchResult(null)
+                    setSearchMessage(null)
+                  }}
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white transition-colors"
+                  title="Clear search"
+                >
+                  <X size={16} />
+                </button>
+              )}
             </div>
             <button
               type="submit"
               disabled={isSearching}
-              className="flex items-center justify-center gap-2 rounded-xl bg-[#ea0a0b] px-6 py-2.5 text-xs font-bold uppercase tracking-wider text-white hover:bg-red-600 transition-all disabled:opacity-50"
+              className="flex items-center justify-center gap-2 rounded-xl bg-[#ea0a0b] px-6 py-2.5 text-xs font-bold uppercase tracking-wider text-white hover:bg-red-600 transition-all disabled:opacity-50 cursor-pointer"
             >
               {isSearching ? (
                 <Loader2 size={16} className="animate-spin" />
               ) : (
                 <Search size={16} />
               )}
-              <span>Search Database</span>
+              <span>Search Customer</span>
             </button>
           </form>
 
@@ -249,7 +327,7 @@ export default function AdminCustomersPage() {
             </div>
           )}
 
-          {/* Backend Search Result Detail Card */}
+          {/* Search Result Detail Card */}
           {searchResult && (
             <div className="mt-6 rounded-2xl border border-[#ea0a0b]/40 bg-[#ea0a0b]/10 p-6 shadow-xl">
               <div className="flex flex-wrap items-center justify-between gap-4 border-b border-white/10 pb-4">
@@ -282,7 +360,7 @@ export default function AdminCustomersPage() {
                 </div>
               </div>
 
-              {/* Associated Vehicles from Backend */}
+              {/* Associated Vehicles */}
               <div className="mt-5">
                 <span className="text-xs font-bold uppercase tracking-wider text-zinc-300 block mb-3">
                   Registered Vehicles ({searchResult.vehicles?.length || 0})
@@ -323,8 +401,16 @@ export default function AdminCustomersPage() {
 
         {/* Customers Table */}
         <PanelCard
-          title={`All Registered Customers (${store.customers.length})`}
-          subtitle="Master accounts in the AutoZone database"
+          title={
+            searchQuery.trim()
+              ? `Search Results (${filteredCustomers.length} of ${store.customers.length})`
+              : `All Registered Customers (${store.customers.length})`
+          }
+          subtitle={
+            searchQuery.trim()
+              ? `Filtering by "${searchQuery}" across Name, Phone, and Email`
+              : 'Master accounts in the AutoZone database'
+          }
         >
           <div className="overflow-hidden rounded-xl border border-white/[0.12] bg-[#1a1922]">
             <table className="w-full text-left text-xs sm:text-sm">
@@ -338,42 +424,69 @@ export default function AdminCustomersPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/[0.08]">
-                {store.customers.map((c) => {
-                  const custVehicles = store.repository.getVehiclesByCustomerId(c.id)
-                  return (
-                    <tr key={c.id} className="hover:bg-[#232230] transition-colors">
-                      <td className="py-4 px-5">
-                        <div className="font-semibold text-white">{c.fullName}</div>
-                        <div className="text-[11px] text-[#9e9ea6] font-mono">
-                          ID: {c.backendCustomerId || c.id}
-                        </div>
-                      </td>
-                      <td className="py-4 px-5 font-mono text-zinc-200">{c.phone}</td>
-                      <td className="py-4 px-5 text-zinc-300">{c.email}</td>
-                      <td className="py-4 px-5 font-bold font-mono text-right text-white">
-                        {custVehicles.length}
-                      </td>
-                      <td className="py-4 px-5 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <button
-                            type="button"
-                            onClick={() => openEditModal(c)}
-                            className="rounded-lg bg-[#252432] border border-white/15 p-2 text-zinc-300 hover:text-white hover:bg-[#302f40] transition-all"
-                            title="Edit Customer"
-                          >
-                            <Edit2 size={13} />
-                          </button>
-                          <Link
-                            href={`/admin/vehicles?customerId=${c.id}`}
-                            className="rounded-lg bg-[#ea0a0b]/20 border border-[#ea0a0b]/40 px-3 py-1 text-xs font-bold text-[#ea0a0b] hover:bg-[#ea0a0b] hover:text-white transition-all"
-                          >
-                            + Vehicle
-                          </Link>
-                        </div>
-                      </td>
-                    </tr>
-                  )
-                })}
+                {filteredCustomers.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="py-10 text-center text-zinc-400">
+                      <div className="flex flex-col items-center justify-center gap-2">
+                        <Users className="h-8 w-8 text-zinc-600" />
+                        <p className="text-sm font-semibold text-zinc-300">
+                          No customer found matching &quot;{searchQuery}&quot;
+                        </p>
+                        <p className="text-xs text-zinc-500">
+                          Try searching by another name, phone number, or email.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSearchQuery('')
+                            setSearchResult(null)
+                            setSearchMessage(null)
+                          }}
+                          className="mt-2 text-xs font-bold text-[#ea0a0b] hover:underline"
+                        >
+                          Clear Search
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  filteredCustomers.map((c) => {
+                    const custVehicles = store.repository.getVehiclesByCustomerId(c.id)
+                    return (
+                      <tr key={c.id} className="hover:bg-[#232230] transition-colors">
+                        <td className="py-4 px-5">
+                          <div className="font-semibold text-white">{c.fullName}</div>
+                          <div className="text-[11px] text-[#9e9ea6] font-mono">
+                            ID: {c.backendCustomerId || c.id}
+                          </div>
+                        </td>
+                        <td className="py-4 px-5 font-mono text-zinc-200">{c.phone}</td>
+                        <td className="py-4 px-5 text-zinc-300">{c.email}</td>
+                        <td className="py-4 px-5 font-bold font-mono text-right text-white">
+                          {custVehicles.length}
+                        </td>
+                        <td className="py-4 px-5 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              type="button"
+                              onClick={() => openEditModal(c)}
+                              className="rounded-lg bg-[#252432] border border-white/15 p-2 text-zinc-300 hover:text-white hover:bg-[#302f40] transition-all"
+                              title="Edit Customer"
+                            >
+                              <Edit2 size={13} />
+                            </button>
+                            <Link
+                              href={`/admin/vehicles?customerId=${c.id}`}
+                              className="rounded-lg bg-[#ea0a0b]/20 border border-[#ea0a0b]/40 px-3 py-1 text-xs font-bold text-[#ea0a0b] hover:bg-[#ea0a0b] hover:text-white transition-all"
+                            >
+                              + Vehicle
+                            </Link>
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })
+                )}
               </tbody>
             </table>
           </div>
