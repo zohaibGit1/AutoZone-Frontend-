@@ -1,6 +1,9 @@
 import { ApiErrorResponse } from './types'
 
-export const API_BASE_URL ='http://autozone.androcoders.net'
+export const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL ||
+  process.env.NEXT_PUBLIC_API_BASE_URL ||
+  'https://autozone.androcoders.net/api/v1'
 
 export class ApiError extends Error {
   public status: number
@@ -28,7 +31,8 @@ export async function apiClient<T>(
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
 
   const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`
-  const url = `${API_BASE_URL}${cleanEndpoint}`
+  const baseUrl = API_BASE_URL.replace(/\/+$/, '')
+  const url = `${baseUrl}${cleanEndpoint}`
 
   const defaultHeaders: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -106,7 +110,8 @@ export async function apiDownload(
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
 
   const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`
-  const url = `${API_BASE_URL}${cleanEndpoint}`
+  const baseUrl = API_BASE_URL.replace(/\/+$/, '')
+  const url = `${baseUrl}${cleanEndpoint}`
 
   const config: RequestInit = {
     ...customConfig,

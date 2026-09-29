@@ -63,7 +63,7 @@ export const invoicesApi = {
    * Get the direct download URL for invoice PDF
    */
   getInvoicePdfUrl: (invoiceId: number | string): string => {
-    return `${API_BASE_URL}/invoices/${invoiceId}/pdf`
+    return `${API_BASE_URL.replace(/\/+$/, '')}/invoices/${invoiceId}/pdf`
   },
 
   /**
